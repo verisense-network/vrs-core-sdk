@@ -1,0 +1,11 @@
+[workspace]
+members = [
+    "core-sdk",
+    "core-sdk-macros",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.0.1"
+authors = ["Verisense Team"]
+edition = "2021"
