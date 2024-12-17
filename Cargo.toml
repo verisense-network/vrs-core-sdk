@@ -11,6 +11,6 @@ authors = ["edison@versense.network", "shiotoli@verisense.network", "mike@verise
 edition = "2021"
 license = "MIT"
 homepage = "https://verisense.network"
-repository = "https://github.com/verisense/vrs-core-sdk"
+repository = "https://github.com/verisense-network/vrs-core-sdk"
 description = "Core SDK for developing Verisense nucleus."
 
