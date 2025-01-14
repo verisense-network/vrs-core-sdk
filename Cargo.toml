@@ -6,11 +6,10 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.0.2"
+version = "0.0.3"
 authors = ["edison@versense.network", "shiotoli@verisense.network", "mike@verisense.network"]
 edition = "2021"
 license = "MIT"
 homepage = "https://verisense.network"
 repository = "https://github.com/verisense-network/vrs-core-sdk"
 description = "Core SDK for developing Verisense nucleus."
-
