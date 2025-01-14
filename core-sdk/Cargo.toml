@@ -11,7 +11,7 @@ readme.workspace = true
 
 [dependencies]
 paste = "1.0"
-vrs-core-macros = { path = "../core-sdk-macros" , version = "0.0.3" }
+vrs-core-macros = { path = "../core-sdk-macros", version = "0.0.3" }
 anyhow = { version = "1", default-features = false }
 codec = { features = ["derive"], package = "parity-scale-codec", version = "3.6.12", default-features = false }
 sp-core = { features = ["serde"], version = "34.0.0", default-features = false }
