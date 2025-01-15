@@ -44,7 +44,6 @@ pub mod timer;
 
 pub use codec;
 pub use io::{_eprint, _print, nucleus_id};
-pub use paste;
 pub use sp_core::crypto::AccountId32 as AccountId;
 pub use vrs_core_macros::*;
 

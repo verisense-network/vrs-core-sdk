@@ -12,6 +12,8 @@ pub enum RuntimeError {
     KvStorageError(String),
     #[codec(index = 3)]
     HttpError(String),
+    #[codec(index = 4)]
+    TimerError(String),
 }
 
 impl core::fmt::Display for RuntimeError {
@@ -22,6 +24,7 @@ impl core::fmt::Display for RuntimeError {
             RuntimeError::MemoryAccessOutOfBounds => write!(f, "Memory access out of bounds"),
             RuntimeError::KvStorageError(e) => write!(f, "Kv storage error: {}", e),
             RuntimeError::HttpError(e) => write!(f, "Http error: {}", e),
+            RuntimeError::TimerError(e) => write!(f, "Timer error: {}", e),
         }
     }
 }

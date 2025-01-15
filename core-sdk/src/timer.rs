@@ -1,3 +1,4 @@
+use crate::error::RuntimeError;
 use std::time::Duration;
 
 use constant::{MAX_DELAY_SEC, MAX_FUNC_SIZE, MAX_PARAMS_SIZE};
@@ -25,15 +26,21 @@ pub fn now() -> i32 {
     unsafe { now_timestamp() }
 }
 
-pub fn _set_timer(ts: Duration, func: &[u8], params: &[u8]) -> anyhow::Result<()> {
+pub fn _set_timer(ts: Duration, func: &[u8], params: &[u8]) -> Result<(), RuntimeError> {
     if params.len() > MAX_PARAMS_SIZE {
-        return Err(anyhow::anyhow!("params size exceeds maximum allowed size"));
+        return Err(RuntimeError::TimerError(
+            "params size exceeds maximum allowed size".to_string(),
+        ));
     }
     if ts.as_secs() > MAX_DELAY_SEC {
-        return Err(anyhow::anyhow!("delay exceeds maximum allowed size"));
+        return Err(RuntimeError::TimerError(
+            "delay exceeds maximum allowed size".to_string(),
+        ));
     }
     if func.len() > MAX_FUNC_SIZE {
-        return Err(anyhow::anyhow!("func size exceeds maximum allowed size"));
+        return Err(RuntimeError::TimerError(
+            "func size exceeds maximum allowed size".to_string(),
+        ));
     }
     let status = unsafe {
         timer_set_delay(
@@ -45,7 +52,7 @@ pub fn _set_timer(ts: Duration, func: &[u8], params: &[u8]) -> anyhow::Result<()
         )
     };
     if status != 0 {
-        Err(anyhow::anyhow!("set timer failed"))
+        Err(RuntimeError::TimerError("timer queue is full".to_string()))
     } else {
         Ok(())
     }
@@ -53,19 +60,27 @@ pub fn _set_timer(ts: Duration, func: &[u8], params: &[u8]) -> anyhow::Result<()
 
 #[macro_export]
 macro_rules! set_timer {
-    ($duration:expr, $func_call:ident ( $($param:expr),* $(,)? )) => {{
+    ($duration:expr, $func_call:ident, $($param:expr,)*) => {{
         let __duration: std::time::Duration = $duration;
-
-        // Extract the function name as a string
         let __func_name_bytes = stringify!($func_call);
         let __func_bytes = __func_name_bytes.as_bytes();
-
-        // Handle parameters (or no parameters)
-        ::vrs_core_sdk::paste::paste! {
-            let __params: [<_NUCLEUS_TIMER_PARAMS_TYPE_ $func_call>] = ($($param,)*);
-            let __params_bytes = <[<_NUCLEUS_TIMER_PARAMS_TYPE_ $func_call>] as ::vrs_core_sdk::codec::Encode>::encode(&__params);
-        }
-
+        let __param = ($($param,)*);
+        let __params_bytes = ::vrs_core_sdk::codec::Encode::encode(&__param);
+        ::vrs_core_sdk::timer::_set_timer(__duration, __func_bytes, __params_bytes.as_slice())
+    }};
+    ($duration:expr, $func_call:ident, $($param:expr),*) => {{
+        let __duration: std::time::Duration = $duration;
+        let __func_name_bytes = stringify!($func_call);
+        let __func_bytes = __func_name_bytes.as_bytes();
+        let __param = ($($param,)*);
+        let __params_bytes = ::vrs_core_sdk::codec::Encode::encode(&__param);
+        ::vrs_core_sdk::timer::_set_timer(__duration, __func_bytes, __params_bytes.as_slice())
+    }};
+    ($duration:expr, $func_call:ident) => {{
+        let __duration: std::time::Duration = $duration;
+        let __func_name_bytes = stringify!($func_call);
+        let __func_bytes = __func_name_bytes.as_bytes();
+        let __params_bytes = ::vrs_core_sdk::codec::Encode::encode(&());
         ::vrs_core_sdk::timer::_set_timer(__duration, __func_bytes, __params_bytes.as_slice())
     }};
 }

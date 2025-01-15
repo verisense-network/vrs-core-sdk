@@ -2,7 +2,7 @@ use vrs_core_sdk::{get, init, post, set_timer, storage, timer};
 
 #[init]
 pub fn timer_init() {
-    test_set_perfect_tree_mod_timer(1, 0);
+    set_timer!(std::time::Duration::from_secs(5), test_timer).unwrap();
 }
 
 #[timer]
@@ -13,10 +13,9 @@ pub fn test_delay(a: String, b: i32) {
 #[post]
 pub fn test_set_timer() {
     storage::put(b"delay", format!("init").as_bytes());
-
     let a = "abc".to_string();
     let b = 123;
-    set_timer!(std::time::Duration::from_secs(4), test_delay(a, b));
+    set_timer!(std::time::Duration::from_secs(4), test_delay, a, b);
 }
 
 #[get]
@@ -27,11 +26,12 @@ pub fn test_get_timer() -> Result<String, String> {
 
 #[post]
 pub fn test_set_tree_mod_timer() {
-    test_delay("init".to_string(), 0);
     for i in (1..=10).rev() {
         set_timer!(
             std::time::Duration::from_secs(i),
-            test_delay("abc".to_string(), i as i32)
+            test_delay,
+            "abc".to_string(),
+            i as i32
         )
         .unwrap();
     }
@@ -69,11 +69,15 @@ pub fn test_set_perfect_tree_mod_timer(i: i32, using_time: i32) -> Result<i32, S
     }
     set_timer!(
         std::time::Duration::from_secs(1),
-        test_set_perfect_tree_mod_timer(i * 2, using_time + 1)
+        test_set_perfect_tree_mod_timer,
+        i * 2,
+        using_time + 1
     );
     set_timer!(
         std::time::Duration::from_secs(2),
-        test_set_perfect_tree_mod_timer(i * 2 + 1, using_time + 2)
+        test_set_perfect_tree_mod_timer,
+        i * 2 + 1,
+        using_time + 2,
     );
 
     Ok(i)
@@ -86,5 +90,5 @@ pub fn test_empty_timer() -> Result<i32, String> {
 
 #[post]
 pub fn test_set_empty_timer() {
-    set_timer!(std::time::Duration::from_secs(1), test_empty_timer()).unwrap();
+    set_timer!(std::time::Duration::from_secs(1), test_empty_timer).unwrap();
 }
