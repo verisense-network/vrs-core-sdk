@@ -41,6 +41,7 @@ pub mod http;
 pub mod io;
 pub mod storage;
 pub mod timer;
+pub mod tss;
 
 pub use codec;
 pub use io::{_eprint, _print, nucleus_id};

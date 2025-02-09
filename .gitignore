@@ -19,6 +19,7 @@ target/
 # frontend code
 node_modules/
 dist/
+tss-example/
 
 # environment variables
 .env
@@ -26,3 +27,8 @@ dist/
 # docs
 *.pdf
 *.tex
+
+# test tools
+build.sh
+expand*.rs
+*.wasm
