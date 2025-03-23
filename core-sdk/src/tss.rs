@@ -17,6 +17,7 @@ pub enum CryptoType {
     Secp256k1Tr = 3,
     Ed448 = 4,
     Ristretto255 = 5,
+    EcdsaSecp256k1 = 6,
 }
 
 impl From<CryptoType> for u8 {
