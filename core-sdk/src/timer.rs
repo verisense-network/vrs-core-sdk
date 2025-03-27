@@ -19,10 +19,10 @@ extern "C" {
         params_len: i32,
     ) -> i32;
 
-    fn now_timestamp() -> i32;
+    fn now_timestamp() -> u64;
 }
 
-pub fn now() -> i32 {
+pub fn now() -> u64 {
     unsafe { now_timestamp() }
 }
 
