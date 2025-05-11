@@ -10,7 +10,7 @@ description.workspace = true
 readme.workspace = true
 
 [dependencies]
-vrs-core-macros = { path = "../core-sdk-macros", version = "0.0.4" }
+vrs-core-macros = { path = "../core-sdk-macros", version = "0.0.5" }
 codec = { features = [
     "derive",
 ], package = "parity-scale-codec", version = "3.6.12", default-features = false }
