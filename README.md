@@ -4,7 +4,7 @@
 
 ## Quick start
 
-Store/retrive a simple `User` on/from Verisense nucleus.
+Store/retrieve a `User` on/from Verisense nucleus.
 
 ``` rust
 use parity_scale_codec::{Decode, Encode};
