@@ -2,8 +2,6 @@
 
 > The core sdk for developing [Verisense](https://verisense.network) nucleus. Check [Docs](https://docs.verisense.network) for more details.
 
-NOTE: This is a preview version for developers; breaking changes may occur in the future.
-
 ## Quick start
 
 Store/retrive a simple `User` on/from Verisense nucleus.
