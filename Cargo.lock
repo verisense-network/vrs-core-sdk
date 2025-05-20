@@ -633,6 +633,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "export-example"
+version = "0.1.0"
+
+[[package]]
 name = "ff"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2193,6 +2197,8 @@ name = "vrs-core-macros"
 version = "0.1.0"
 dependencies = [
  "quote",
+ "serde",
+ "serde_json",
  "syn 2.0.90",
 ]
 
