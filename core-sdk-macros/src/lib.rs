@@ -103,7 +103,6 @@ fn get_export_file() -> String {
 
 use serde::Serialize;
 use std::{fs::OpenOptions, io::Write};
-use syn::{Data, DeriveInput};
 
 #[derive(Serialize)]
 #[serde(tag = "kind")]
@@ -145,7 +144,7 @@ struct ExportFn {
 }
 
 #[proc_macro_attribute]
-pub fn export(args: TokenStream, input: TokenStream) -> TokenStream {
+pub fn export(_args: TokenStream, input: TokenStream) -> TokenStream {
     let input_clone = input.clone();
     let ast: syn::Item = parse_macro_input!(input_clone);
 
@@ -262,9 +261,6 @@ fn export_fn_internal(method: &str, f: &ItemFn) {
     append_to_file(&export);
 }
 
-fn type_to_string(ty: &syn::Type) -> String {
-    quote!(#ty).to_string().replace(' ', "")
-}
 use serde_json::Value;
 use std::fs::{self};
 use std::sync::Once;
