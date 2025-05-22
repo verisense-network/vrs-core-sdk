@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, FnArg, Ident, ItemFn, ItemStruct, ReturnType};
+use syn::{parse_macro_input, FnArg, Ident, ItemFn, ItemStruct, ItemType, ReturnType};
 
 #[proc_macro_attribute]
 pub fn post(_attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -38,7 +38,6 @@ pub fn callback(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let func_name = format_ident!("__nucleus_http_callback");
     expand(func, func_name)
 }
-
 fn expand(func: ItemFn, entry_name: Ident) -> TokenStream {
     let func_block = &func.block;
     let func_decl = &func.sig;
@@ -134,6 +133,14 @@ struct ExportField {
     r#type: TypePath,
 }
 
+/// JSON structure definition for Type Aliases
+#[derive(Serialize)]
+struct ExportTypeAlias {
+    r#type: &'static str, // Will be "type_alias" or "type"
+    name: String,
+    generics: Vec<String>,
+    target: TypePath,
+}
 #[derive(Serialize)]
 struct ExportFn {
     r#type: &'static str,
@@ -150,6 +157,7 @@ pub fn export(_args: TokenStream, input: TokenStream) -> TokenStream {
 
     match &ast {
         syn::Item::Struct(s) => export_struct(&s),
+        syn::Item::Type(alias) => export_type_alias(&alias),
         _ => (),
     }
 
@@ -204,6 +212,26 @@ fn parse_type(ty: &syn::Type) -> TypePath {
 
         _ => TypePath::Unsupported,
     }
+}
+fn export_type_alias(t: &ItemType) {
+    let generic_params = t
+        .generics
+        .params
+        .iter()
+        .filter_map(|gp| match gp {
+            syn::GenericParam::Type(tp) => Some(tp.ident.to_string()),
+            _ => None,
+        })
+        .collect();
+
+    let export = ExportTypeAlias {
+        r#type: "type_alias",
+        name: t.ident.to_string(),
+        generics: generic_params,
+        target: parse_type(&*t.ty), // t.ty is a Box<Type>, so dereference
+    };
+
+    append_to_file(&export);
 }
 fn export_struct(s: &ItemStruct) {
     let fields = s
