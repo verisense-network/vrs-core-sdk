@@ -1,0 +1,519 @@
+[
+  {
+    "fields": [
+      {
+        "name": "a",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "u32"
+          ]
+        }
+      },
+      {
+        "name": "b",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "u32"
+          ]
+        }
+      }
+    ],
+    "name": "T",
+    "type": "struct"
+  },
+  {
+    "generics": [
+      "T"
+    ],
+    "name": "G",
+    "target": {
+      "generic_args": [
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "T"
+          ]
+        },
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      ],
+      "kind": "Path",
+      "path": [
+        "Result"
+      ]
+    },
+    "type": "type_alias"
+  },
+  {
+    "fields": [
+      {
+        "name": "a",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "u32"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Vec"
+          ]
+        }
+      },
+      {
+        "name": "b",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "i32"
+          ]
+        }
+      },
+      {
+        "name": "c",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "u32"
+          ]
+        }
+      }
+    ],
+    "name": "E",
+    "type": "struct"
+  },
+  {
+    "fields": [
+      {
+        "name": "b",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "i32"
+          ]
+        }
+      }
+    ],
+    "name": "D",
+    "type": "struct"
+  },
+  {
+    "fields": [
+      {
+        "name": "c",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "C"
+          ]
+        }
+      }
+    ],
+    "name": "B",
+    "type": "struct"
+  },
+  {
+    "fields": [
+      {
+        "name": "d",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "u32"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Vec"
+          ]
+        }
+      },
+      {
+        "name": "e",
+        "type": {
+          "kind": "Tuple",
+          "tuple_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "String"
+              ]
+            },
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "String"
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "name": "C",
+    "type": "struct"
+  },
+  {
+    "inputs": [
+      {
+        "name": "_a",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "u32"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "G"
+          ]
+        }
+      }
+    ],
+    "method": "post",
+    "name": "tv",
+    "output": {
+      "generic_args": [
+        {
+          "kind": "Tuple",
+          "tuple_args": []
+        }
+      ],
+      "kind": "Path",
+      "path": [
+        "G"
+      ]
+    },
+    "type": "fn"
+  },
+  {
+    "inputs": [
+      {
+        "name": "_a",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "A"
+          ]
+        }
+      }
+    ],
+    "method": "post",
+    "name": "a",
+    "output": {
+      "generic_args": [
+        {
+          "kind": "Tuple",
+          "tuple_args": []
+        },
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      ],
+      "kind": "Path",
+      "path": [
+        "Result"
+      ]
+    },
+    "type": "fn"
+  },
+  {
+    "inputs": [
+      {
+        "name": "_a",
+        "type": {
+          "kind": "Tuple",
+          "tuple_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "A"
+              ]
+            },
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "String"
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "method": "post",
+    "name": "bbb",
+    "output": {
+      "generic_args": [
+        {
+          "kind": "Tuple",
+          "tuple_args": []
+        },
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      ],
+      "kind": "Path",
+      "path": [
+        "Result"
+      ]
+    },
+    "type": "fn"
+  },
+  {
+    "inputs": [
+      {
+        "name": "a",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "b",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      }
+    ],
+    "method": "post",
+    "name": "cc",
+    "output": {
+      "generic_args": [
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        },
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      ],
+      "kind": "Path",
+      "path": [
+        "Result"
+      ]
+    },
+    "type": "fn"
+  },
+  {
+    "inputs": [
+      {
+        "name": "d",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "D"
+          ]
+        }
+      }
+    ],
+    "method": "post",
+    "name": "use_codec",
+    "output": {
+      "generic_args": [
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "E"
+          ]
+        },
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      ],
+      "kind": "Path",
+      "path": [
+        "Result"
+      ]
+    },
+    "type": "fn"
+  },
+  {
+    "inputs": [],
+    "method": "get",
+    "name": "should_not_call_put",
+    "output": {
+      "generic_args": [
+        {
+          "kind": "Tuple",
+          "tuple_args": []
+        },
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      ],
+      "kind": "Path",
+      "path": [
+        "Result"
+      ]
+    },
+    "type": "fn"
+  },
+  {
+    "inputs": [],
+    "method": "post",
+    "name": "should_call_put",
+    "output": {
+      "generic_args": [
+        {
+          "kind": "Tuple",
+          "tuple_args": []
+        },
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      ],
+      "kind": "Path",
+      "path": [
+        "Result"
+      ]
+    },
+    "type": "fn"
+  },
+  {
+    "fields": [
+      {
+        "name": "b",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "B"
+          ]
+        }
+      },
+      {
+        "name": "tuple_field",
+        "type": {
+          "kind": "Tuple",
+          "tuple_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "u32"
+              ]
+            },
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "String"
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "name": "array_field",
+        "type": {
+          "elem": {
+            "generic_args": [],
+            "kind": "Path",
+            "path": [
+              "u8"
+            ]
+          },
+          "kind": "Array",
+          "len": 10
+        }
+      },
+      {
+        "name": "slice_field",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "u64"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Vec"
+          ]
+        }
+      },
+      {
+        "name": "ggg",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "quote",
+            "T"
+          ]
+        }
+      }
+    ],
+    "name": "A",
+    "type": "struct"
+  }
+]
