@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, FnArg, Ident, ItemFn, ItemStruct, ItemType, ReturnType};
+use syn::{parse_macro_input, FnArg, Ident, ItemEnum, ItemFn, ItemStruct, ItemType, ReturnType};
 
 #[proc_macro_attribute]
 pub fn post(_attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -144,7 +144,18 @@ struct ExportStruct {
     name: String,
     fields: Vec<ExportField>,
 }
+#[derive(Serialize)]
+struct ExportVariant {
+    name: String,
+    fields: Vec<ExportField>,
+}
 
+#[derive(Serialize)]
+struct ExportEnum {
+    r#type: &'static str,
+    name: String,
+    variants: Vec<ExportVariant>,
+}
 #[derive(Serialize)]
 struct ExportField {
     name: String,
@@ -176,6 +187,7 @@ pub fn export(_args: TokenStream, input: TokenStream) -> TokenStream {
     match &ast {
         syn::Item::Struct(s) => export_struct(&s),
         syn::Item::Type(alias) => export_type_alias(&alias),
+        syn::Item::Enum(e) => export_enum(&e),
         _ => (),
     }
 
@@ -247,6 +259,46 @@ fn export_type_alias(t: &ItemType) {
         name: t.ident.to_string(),
         generics: generic_params,
         target: parse_type(&*t.ty), // t.ty is a Box<Type>, so dereference
+    };
+
+    append_to_file(&export);
+}
+fn export_enum(e: &ItemEnum) {
+    let variants = e
+        .variants
+        .iter()
+        .map(|v| {
+            let name = v.ident.to_string();
+            let fields = match &v.fields {
+                syn::Fields::Named(fields_named) => fields_named
+                    .named
+                    .iter()
+                    .filter_map(|f| {
+                        f.ident.as_ref().map(|ident| ExportField {
+                            name: ident.to_string(),
+                            r#type: parse_type(&f.ty),
+                        })
+                    })
+                    .collect(),
+                syn::Fields::Unnamed(fields_unnamed) => fields_unnamed
+                    .unnamed
+                    .iter()
+                    .enumerate()
+                    .map(|(i, f)| ExportField {
+                        name: format!("_{}", i),
+                        r#type: parse_type(&f.ty),
+                    })
+                    .collect(),
+                syn::Fields::Unit => vec![],
+            };
+            ExportVariant { name, fields }
+        })
+        .collect();
+
+    let export = ExportEnum {
+        r#type: "enum",
+        name: e.ident.to_string(),
+        variants,
     };
 
     append_to_file(&export);

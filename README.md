@@ -259,18 +259,79 @@ Exported ABI:
 }
 ```
 
+
 ### Enums (`"type": "enum"`)
 
 Describes an exported enum.
 
   * `name`: `String` - The name of the enum.
   * `type`: `String` - Always `"enum"`.
-  * `variants`: `Array<Object>` - A list of objects, each describing a variant of the enum:
+  * `variants`: `Array<Object>` - A list of objects, where each object describes a variant of the enum:
       * `name`: `String` - The name of the variant.
-      * `fields`: `Option<Array<Object>>` - Describes the fields of the variant.
-          * For simple variants (e.g., `VariantA`): This might be absent or an empty array.
-          * For tuple variants (e.g., `VariantB(u32, String)`): An array of type descriptor objects for each element in the tuple.
-          * For struct variants (e.g., `VariantC { x: u32, y: String }`): An array of field objects, similar to struct fields, each with `name` and `type`.
+      * `fields`: `Array<Object>` - An array describing the fields associated with the variant. Its structure varies based on the variant type:
+          * **Unit Variants**: For variants without associated data (e.g., `VariantA`), `fields` is an **empty array** `[]`.
+          * **Tuple Variants**: For variants with unnamed data (e.g., `VariantB(u32, String)`), `fields` is an array of field objects. Each object represents an element in the tuple, with its `name` being **automatically generated** as `_0`, `_1`, `_2`, etc., and includes its `type` (a [Type System](#type-system) descriptor).
+          * **Struct Variants**: For variants with named data (e.g., `VariantC { x: u32, y: String }`), `fields` is an array of field objects, similar in structure to [Structs](#type-system) fields, where each object contains its `name` and `type`.
+
+**Example: Enum `MyCustomEnum` - Rust Definition and ABI Output**
+
+This example shows an enum with unit, tuple, and struct variants and its representation in the ABI JSON.
+
+`MyCustomEnum` Definition in Nucleus:
+
+```rust
+use vrs_core_sdk::{export, codec::{Decode, Encode}};
+
+#[derive(Debug, Decode, Encode)]
+#[export]
+pub enum MyCustomEnum {
+    VariantA,
+    VariantB(u32, String),
+    VariantC { id: u64, name: String },
+}
+```
+
+Exported ABI:
+
+```json
+{
+  "type": "enum",
+  "name": "MyCustomEnum",
+  "variants": [
+    {
+      "name": "VariantA",
+      "fields": []
+    },
+    {
+      "name": "VariantB",
+      "fields": [
+        {
+          "name": "_0",
+          "type": { "kind": "Path", "path": ["u32"], "generic_args": [] }
+        },
+        {
+          "name": "_1",
+          "type": { "kind": "Path", "path": ["String"], "generic_args": [] }
+        }
+      ]
+    },
+    {
+        "name": "VariantC",
+        "fields": [
+            {
+              "name": "id",
+              "type": { "kind": "Path", "path": ["u64"], "generic_args": [] }
+            },
+            {
+              "name": "name",
+              "type": { "kind": "Path", "path": ["String"], "generic_args": [] }
+            }
+        ]
+    }
+  ]
+}
+```
+
 
 ### Type Aliases (`"type": "type_alias"`)
 
@@ -474,6 +535,7 @@ Types are described recursively using a type descriptor object. This object alwa
       "generic_args": []
     }
     ```
+
 
 ## FAQ
 

@@ -18,6 +18,13 @@ pub struct E {
 
 #[derive(Debug, Decode, Encode)]
 #[export]
+pub enum MyCustomEnum {
+    VariantA,
+    VariantB(u32),
+    VariantC { id: u64, name: String },
+}
+#[derive(Debug, Decode, Encode)]
+#[export]
 pub struct D {
     pub b: i32,
 }
