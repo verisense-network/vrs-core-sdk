@@ -7,7 +7,18 @@ mod quote;
 
 #[export]
 type G<T> = Result<T, String>;
-
+#[export]
+pub struct H160(pub [u8; 20]);
+#[export]
+pub struct Args<T, S> {
+    pub signer: T,
+    pub sign_data: S,
+}
+#[export]
+pub struct SignData {
+    pub signer: H160,
+    pub sign_data: Vec<u8>,
+}
 #[derive(Debug, Decode, Encode)]
 #[export]
 pub struct E {

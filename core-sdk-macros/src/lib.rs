@@ -142,6 +142,7 @@ enum TypePath {
 struct ExportStruct {
     r#type: &'static str,
     name: String,
+    generics: Vec<String>,
     fields: Vec<ExportField>,
 }
 #[derive(Serialize)]
@@ -304,21 +305,46 @@ fn export_enum(e: &ItemEnum) {
     append_to_file(&export);
 }
 fn export_struct(s: &ItemStruct) {
-    let fields = s
-        .fields
+    // +++ Add logic to extract generic parameters +++
+    let generic_params: Vec<String> = s
+        .generics
+        .params
         .iter()
-        .filter_map(|f| {
-            f.ident.as_ref().map(|ident| ExportField {
-                name: ident.to_string(),
-                r#type: parse_type(&f.ty),
-            })
+        .filter_map(|gp| match gp {
+            syn::GenericParam::Type(tp) => Some(tp.ident.to_string()),
+            _ => None,
         })
         .collect();
+
+    // +++ Modify field handling logic to support tuple structs +++
+    let fields: Vec<ExportField> = match &s.fields {
+        syn::Fields::Named(fields_named) => fields_named
+            .named
+            .iter()
+            .filter_map(|f| {
+                f.ident.as_ref().map(|ident| ExportField {
+                    name: ident.to_string(),
+                    r#type: parse_type(&f.ty),
+                })
+            })
+            .collect(),
+        syn::Fields::Unnamed(fields_unnamed) => fields_unnamed
+            .unnamed
+            .iter()
+            .enumerate()
+            .map(|(i, f)| ExportField {
+                name: format!("_{}", i), // Generate names _0, _1, ... for tuple fields
+                r#type: parse_type(&f.ty),
+            })
+            .collect(),
+        syn::Fields::Unit => vec![], // Handle unit structs
+    };
 
     let export = ExportStruct {
         r#type: "struct",
         name: s.ident.to_string(),
-        fields,
+        generics: generic_params, // <--- Add generic parameters
+        fields,                   // <--- Use updated fields
     };
 
     append_to_file(&export);

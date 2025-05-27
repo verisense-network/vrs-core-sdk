@@ -83,6 +83,7 @@ The generated ABI for this snippet would look like this:
       { "name": "b", "type": { "kind": "Path", "path": ["i32"], "generic_args": [] } }
     ],
     "name": "D",
+    "generics": [],
     "type": "struct"
   },
   {
@@ -106,6 +107,7 @@ The generated ABI for this snippet would look like this:
         "type": { "kind": "Path", "path": ["u32"], "generic_args": [] }
       }
     ],
+    "generics": [],
     "name": "E",
     "type": "struct"
   },
@@ -160,6 +162,17 @@ type MyId = u64;
 
 #[export] // Exporting a generic type alias
 type MyGenericResult<T> = Result<T, String>;
+
+#[derive(Debug, Decode, Encode)]
+#[export]
+pub struct H160(pub [u8; 20]); // Exporting a tuple struct
+
+#[derive(Debug, Decode, Encode)]
+#[export]
+pub struct Args<T, S> { // Exporting a generic struct
+    pub signer: T,
+    pub sign_data: S,
+}
 ```
 
 The default output path for the ABI JSON file is `./exports.json`.
@@ -190,6 +203,7 @@ Describes an exported struct.
 
   * `name`: `String` - The name of the struct.
   * `type`: `String` - Always `"struct"`.
+  * `generics`: `Array<String>` - A list of strings representing the names of the generic parameters (e.g., `["T", "S"]`). Empty if the struct is not generic.
   * `fields`: `Array<Object>` - A list of objects, each describing a field in the struct:
       * `name`: `String` - The name of the field.
       * `type`: `Object` - A type descriptor object defining the field's type. See the [Type System](#type-system) section.
@@ -259,6 +273,59 @@ Exported ABI:
 }
 ```
 
+**Example: Struct `H160` (Tuple Struct) - Rust Definition and ABI Output**
+
+```rust
+#[derive(Debug, Decode, Encode)]
+#[export]
+pub struct H160(pub [u8; 20]);
+```
+Exported ABI:
+```json
+{
+  "type": "struct",
+  "name": "H160",
+  "generics": [],
+  "fields": [
+    {
+      "name": "_0",
+      "type": {
+        "kind": "Array",
+        "elem": { "kind": "Path", "path": ["u8"], "generic_args": [] },
+        "len": 20
+      }
+    }
+  ]
+}
+```
+Example: Struct `Args<T, S>` (Generic Struct) - Rust Definition and ABI Output
+```rust
+#[derive(Debug, Decode, Encode)]
+#[export]
+pub struct Args<T, S> {
+    pub signer: T,
+    pub sign_data: S,
+}
+```
+Exported ABI:
+```json
+{
+  "type": "struct",
+  "name": "Args",
+  "generics": ["T", "S"],
+  "fields": [
+    {
+      "name": "signer",
+      "type": { "kind": "Path", "path": ["T"], "generic_args": [] }
+    },
+    {
+      "name": "sign_data",
+      "type": { "kind": "Path", "path": ["S"], "generic_args": [] }
+    }
+  ]
+}
+```
+
 
 ### Enums (`"type": "enum"`)
 
@@ -271,7 +338,7 @@ Describes an exported enum.
       * `fields`: `Array<Object>` - An array describing the fields associated with the variant. Its structure varies based on the variant type:
           * **Unit Variants**: For variants without associated data (e.g., `VariantA`), `fields` is an **empty array** `[]`.
           * **Tuple Variants**: For variants with unnamed data (e.g., `VariantB(u32, String)`), `fields` is an array of field objects. Each object represents an element in the tuple, with its `name` being **automatically generated** as `_0`, `_1`, `_2`, etc., and includes its `type` (a [Type System](#type-system) descriptor).
-          * **Struct Variants**: For variants with named data (e.g., `VariantC { x: u32, y: String }`), `fields` is an array of field objects, similar in structure to [Structs](#type-system) fields, where each object contains its `name` and `type`.
+          * **Struct Variants**: For variants with named data (e.g., `VariantC { x: u32, y: String }`), `fields` is an array of field objects, similar in structure to [Structs](#structs-type-struct) fields, where each object contains its `name` and `type`.
 
 **Example: Enum `MyCustomEnum` - Rust Definition and ABI Output**
 
@@ -562,4 +629,5 @@ A: If the ABI file is not generated as expected, you can try cleaning your build
 ```bash
 cargo clean
 cargo build --release --target wasm32-unknown-unknown
+nucleus-abigen
 ```
