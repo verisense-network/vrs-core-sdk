@@ -96,12 +96,11 @@ fn expand(func: ItemFn, entry_name: Ident) -> TokenStream {
     expanded.into()
 }
 use std::env;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 fn get_export_file() -> PathBuf {
     // 1. Get the name of the crate currently being compiled
     let pkg_name = env::var("CARGO_PKG_NAME")
         .expect("CARGO_PKG_NAME environment variable not set; ensure you are compiling within a Cargo environment.");
-
     // 2. Get the output directory (use env var if set, otherwise default to target/json_exports)
     let export_dir_str =
         env::var("EXPORT_JSON_DIR").unwrap_or_else(|_| "target/json_exports".to_string());
@@ -117,7 +116,7 @@ fn get_export_file() -> PathBuf {
     });
 
     // 4. Build and return the unique file path, e.g., target/json_exports/my_crate_name.json
-    export_dir.join(format!("{}.json", pkg_name))
+    export_dir.join(format!("__export_json_crate_{}.json", pkg_name))
 }
 use serde::Serialize;
 use std::{fs::OpenOptions, io::Write};
@@ -308,40 +307,94 @@ fn export_fn_internal(method: &str, f: &ItemFn) {
     append_to_file(&export);
 }
 
+use fs2::FileExt; // Import FileExt for locking
 use serde_json::Value;
-use std::fs::{self};
-use std::sync::Once;
-
-static INIT: Once = Once::new();
+use std::collections::HashSet; // Import HashSet
+use std::io::{Read, Seek, SeekFrom}; // Import IO traits
+use std::sync::{LazyLock, Mutex}; // Use Mutex for the map // Ensure Serialize is in scope // Add LazyLock
+                                  // Use a Mutex-protected HashSet to track initialized files per build run.
+static INIT_MAP: LazyLock<Mutex<HashSet<PathBuf>>> = LazyLock::new(|| Mutex::new(HashSet::new()));
 
 fn append_to_file<T: Serialize>(data: &T) {
-    let export_file = get_export_file();
+    let export_file_path = get_export_file(); // Get the PathBuf
 
-    INIT.call_once(|| {
-        // Initialize as empty array on first write during compilation
-        fs::write(&export_file, "[]").expect("Failed to initialize exports.json");
+    // --- Use a file lock to ensure atomic RMW operations ---
+    let file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(&export_file_path)
+        .expect("Cannot open or create export file");
+
+    // Acquire an exclusive (write) lock, blocking until available.
+    file.lock_exclusive().expect("Cannot acquire file lock");
+
+    // --- Perform initialization and RMW within the lock ---
+    let mut needs_init = false;
+    {
+        // Scope for Mutex guard
+        let mut init_set = INIT_MAP.lock().unwrap();
+        if !init_set.contains(&export_file_path) {
+            // Check if file is empty or doesn't exist. If so, it needs initialization.
+            if file.metadata().map(|m| m.len() == 0).unwrap_or(true) {
+                needs_init = true;
+            }
+            // Mark as 'processed' for this build run, even if not empty,
+            // to avoid re-checking.
+            init_set.insert(export_file_path.clone());
+        }
+    } // Mutex guard is dropped here
+
+    let mut current_file = &file; // Use a reference to satisfy Write/Read traits
+
+    if needs_init {
+        // File is empty or new, write "[]"
+        current_file.set_len(0).expect("Cannot truncate file");
+        current_file
+            .seek(SeekFrom::Start(0))
+            .expect("Cannot seek in file");
+        current_file
+            .write_all(b"[]")
+            .expect("Cannot initialize file");
+    }
+
+    // Rewind to the beginning to read the whole content
+    current_file
+        .seek(SeekFrom::Start(0))
+        .expect("Cannot seek in file");
+
+    // Read the existing JSON array
+    let mut content = String::new();
+    current_file
+        .read_to_string(&mut content)
+        .expect("Cannot read file");
+
+    let mut entries: Vec<Value> = serde_json::from_str(&content).unwrap_or_else(|_err| {
+        // If parsing fails (e.g., was empty or corrupted), start fresh.
+        // With locking and init, this should ideally not happen unless externally modified.
+        if needs_init || content.trim().is_empty() {
+            Vec::new()
+        } else {
+            panic!("Failed to parse existing JSON: {}", content)
+        }
     });
 
-    // Serialize new data
+    // Serialize new data and append
     let new_entry = serde_json::to_value(data).expect("Serialize error");
-
-    // Read existing JSON array
-    let mut entries: Vec<Value> = fs::read_to_string(&export_file)
-        .ok()
-        .and_then(|content| serde_json::from_str(&content).ok())
-        .unwrap_or_else(Vec::new);
-
-    // Append new data
     entries.push(new_entry);
 
-    // Write back to file
+    // Serialize back to a JSON string
     let formatted_json = serde_json::to_string_pretty(&entries).expect("JSON serialization error");
-    let mut file = OpenOptions::new()
-        .write(true)
-        .truncate(true)
-        .open(&export_file)
-        .expect("Cannot open file");
 
-    file.write_all(formatted_json.as_bytes())
+    // Truncate the file and write the new content
+    current_file.set_len(0).expect("Cannot truncate file");
+    current_file
+        .seek(SeekFrom::Start(0))
+        .expect("Cannot seek in file");
+    current_file
+        .write_all(formatted_json.as_bytes())
         .expect("Write error");
+
+    // --- Release the file lock ---
+    fs2::FileExt::unlock(&file).expect("Cannot release file lock");
 }

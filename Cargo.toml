@@ -1,5 +1,5 @@
 [workspace]
-members = ["core-sdk", "core-sdk-macros", "export-example"]
+members = ["core-sdk", "core-sdk-macros", "export-example", "nucleus-abigen"]
 resolver = "2"
 
 [workspace.package]
