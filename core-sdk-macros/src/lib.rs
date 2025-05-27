@@ -329,26 +329,22 @@ fn append_to_file<T: Serialize>(data: &T) {
     // Acquire an exclusive (write) lock, blocking until available.
     file.lock_exclusive().expect("Cannot acquire file lock");
 
-    // --- Perform initialization and RMW within the lock ---
-    let mut needs_init = false;
+    // --- Determine if this is the first access IN THIS BUILD RUN ---
+    let is_first_touch_this_run;
     {
         // Scope for Mutex guard
         let mut init_set = INIT_MAP.lock().unwrap();
-        if !init_set.contains(&export_file_path) {
-            // Check if file is empty or doesn't exist. If so, it needs initialization.
-            if file.metadata().map(|m| m.len() == 0).unwrap_or(true) {
-                needs_init = true;
-            }
-            // Mark as 'processed' for this build run, even if not empty,
-            // to avoid re-checking.
-            init_set.insert(export_file_path.clone());
-        }
+        // `insert` returns true if the value was not present before.
+        is_first_touch_this_run = init_set.insert(export_file_path.clone());
     } // Mutex guard is dropped here
+    let mut current_file = &file; // Use a reference
 
-    let mut current_file = &file; // Use a reference to satisfy Write/Read traits
+    // --- Perform initialization or read within the lock ---
 
-    if needs_init {
-        // File is empty or new, write "[]"
+    let mut entries: Vec<Value>;
+
+    if is_first_touch_this_run {
+        // If it's the first time in this build, TRUNCATE and write "[]".
         current_file.set_len(0).expect("Cannot truncate file");
         current_file
             .seek(SeekFrom::Start(0))
@@ -356,28 +352,28 @@ fn append_to_file<T: Serialize>(data: &T) {
         current_file
             .write_all(b"[]")
             .expect("Cannot initialize file");
-    }
+        entries = Vec::new(); // We know it's empty now
+    } else {
+        // If not the first time, read the existing content (which should be [...])
+        current_file
+            .seek(SeekFrom::Start(0))
+            .expect("Cannot seek in file");
+        let mut content = String::new();
+        current_file
+            .read_to_string(&mut content)
+            .expect("Cannot read file");
 
-    // Rewind to the beginning to read the whole content
-    current_file
-        .seek(SeekFrom::Start(0))
-        .expect("Cannot seek in file");
-
-    // Read the existing JSON array
-    let mut content = String::new();
-    current_file
-        .read_to_string(&mut content)
-        .expect("Cannot read file");
-
-    let mut entries: Vec<Value> = serde_json::from_str(&content).unwrap_or_else(|_err| {
-        // If parsing fails (e.g., was empty or corrupted), start fresh.
-        // With locking and init, this should ideally not happen unless externally modified.
-        if needs_init || content.trim().is_empty() {
+        entries = serde_json::from_str(&content).unwrap_or_else(|err| {
+            // This shouldn't happen if locking works, but as a fallback,
+            // we can either panic or start fresh. Starting fresh is safer.
+            eprintln!(
+                "Warning: Could not parse existing JSON in {}: {}. Starting fresh.",
+                export_file_path.display(),
+                err
+            );
             Vec::new()
-        } else {
-            panic!("Failed to parse existing JSON: {}", content)
-        }
-    });
+        });
+    }
 
     // Serialize new data and append
     let new_entry = serde_json::to_value(data).expect("Serialize error");
@@ -386,7 +382,7 @@ fn append_to_file<T: Serialize>(data: &T) {
     // Serialize back to a JSON string
     let formatted_json = serde_json::to_string_pretty(&entries).expect("JSON serialization error");
 
-    // Truncate the file and write the new content
+    // Truncate the file and write the new, full content
     current_file.set_len(0).expect("Cannot truncate file");
     current_file
         .seek(SeekFrom::Start(0))
