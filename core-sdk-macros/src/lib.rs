@@ -95,11 +95,30 @@ fn expand(func: ItemFn, entry_name: Ident) -> TokenStream {
     };
     expanded.into()
 }
+use std::env;
+use std::path::{Path, PathBuf};
+fn get_export_file() -> PathBuf {
+    // 1. Get the name of the crate currently being compiled
+    let pkg_name = env::var("CARGO_PKG_NAME")
+        .expect("CARGO_PKG_NAME environment variable not set; ensure you are compiling within a Cargo environment.");
 
-fn get_export_file() -> String {
-    std::env::var("EXPORT_JSON_FILE").unwrap_or_else(|_| "./exports.json".to_string())
+    // 2. Get the output directory (use env var if set, otherwise default to target/json_exports)
+    let export_dir_str =
+        env::var("EXPORT_JSON_DIR").unwrap_or_else(|_| "target/json_exports".to_string());
+
+    let export_dir = PathBuf::from(export_dir_str);
+
+    // 3. Ensure the output directory exists (Note: potential race in parallel builds, but create_dir_all is usually okay)
+    std::fs::create_dir_all(&export_dir).unwrap_or_else(|e| {
+        panic!(
+            "Failed to create export directory: {:?}. Error: {}",
+            export_dir, e
+        )
+    });
+
+    // 4. Build and return the unique file path, e.g., target/json_exports/my_crate_name.json
+    export_dir.join(format!("{}.json", pkg_name))
 }
-
 use serde::Serialize;
 use std::{fs::OpenOptions, io::Write};
 
