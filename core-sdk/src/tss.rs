@@ -7,9 +7,10 @@
 
 use crate::{error::RuntimeError, CallResult};
 use codec::{Decode, Encode};
-
+use vrs_core_macros::export;
 #[repr(u8)]
 #[derive(Encode, Decode)]
+#[export]
 pub enum CryptoType {
     P256 = 0,
     Ed25519 = 1,
