@@ -26,7 +26,21 @@ impl From<CryptoType> for u8 {
         value as u8
     }
 }
-
+impl TryFrom<u8> for CryptoType {
+    type Error = String;
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(CryptoType::P256),
+            1 => Ok(CryptoType::Ed25519),
+            2 => Ok(CryptoType::Secp256k1),
+            3 => Ok(CryptoType::Secp256k1Tr),
+            4 => Ok(CryptoType::Ed448),
+            5 => Ok(CryptoType::Ristretto255),
+            6 => Ok(CryptoType::EcdsaSecp256k1),
+            _ => Err(format!("Invalid crypto type id: {}", value)),
+        }
+    }
+}
 #[link(wasm_import_module = "env")]
 extern "C" {
     fn tss_get_public_key_host_fn(
