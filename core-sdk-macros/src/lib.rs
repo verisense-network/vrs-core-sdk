@@ -1,12 +1,127 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, FnArg, Ident, ItemEnum, ItemFn, ItemStruct, ItemType, ReturnType};
+use syn::{
+    parse_macro_input, parse_quote, visit_mut::VisitMut, Attribute, FnArg, Ident, ItemFn, ItemMod,
+    PatType, ReturnType, Type,
+};
+
+#[derive(Clone)]
+struct ApiEntry {
+    name: String,
+    method: String,
+    param_types: Vec<Box<Type>>,
+    return_type: Box<Type>,
+}
+
+struct ApiVisitor {
+    entries: Vec<ApiEntry>,
+}
+
+fn find_entry(attrs: &[Attribute]) -> Option<&str> {
+    for attr in attrs {
+        if attr.path().is_ident("get") {
+            return Some("get");
+        } else if attr.path().is_ident("post") {
+            return Some("post");
+        }
+    }
+    None
+}
+
+impl VisitMut for ApiVisitor {
+    fn visit_item_fn_mut(&mut self, item: &mut syn::ItemFn) {
+        if let Some(method) = find_entry(&item.attrs) {
+            let name = item.sig.ident.to_string();
+            let param_types: Vec<_> = item
+                .sig
+                .inputs
+                .iter()
+                .filter_map(|arg| match arg {
+                    FnArg::Typed(PatType { ty, .. }) => Some((*ty).clone()),
+                    _ => None,
+                })
+                .collect();
+            let return_type = match &item.sig.output {
+                ReturnType::Default => parse_quote!(()),
+                ReturnType::Type(_, ty) => (*ty).clone(),
+            };
+            self.entries.push(ApiEntry {
+                name,
+                method: method.to_string(),
+                param_types,
+                return_type,
+            });
+        }
+        syn::visit_mut::visit_item_fn_mut(self, item);
+    }
+}
+
+#[proc_macro_attribute]
+pub fn nucleus(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    let mut input_mod = parse_macro_input!(item as ItemMod);
+    let mut visitor = ApiVisitor {
+        entries: Vec::new(),
+    };
+    visitor.visit_item_mod_mut(&mut input_mod);
+    let entries: Vec<_> = visitor
+        .entries
+        .iter()
+        .map(|entry| {
+            let name = &entry.name;
+            let method = &entry.method;
+            let param_types = entry
+                .param_types
+                .iter()
+                .map(|ty| ty.clone())
+                .collect::<Vec<_>>();
+            let return_type = &entry.return_type;
+            quote! {
+                registry.register_api(
+                    #name.to_string(),
+                    #method.to_string(),
+                    vec![#(::vrs_core_sdk::scale_info::meta_type::<#param_types>(),)*],
+                    ::vrs_core_sdk::scale_info::meta_type::<#return_type>(),
+                );
+            }
+        })
+        .collect::<Vec<_>>();
+    if let Some((_, ref mut items)) = input_mod.content {
+        items.push(parse_quote! {
+            vrs_core_sdk::lazy_static::lazy_static! {
+                static ref TYPES: ::vrs_core_sdk::abi::ApiRegistry = {
+                    let mut registry = ::vrs_core_sdk::abi::ApiRegistry::new();
+                    #(#entries)*
+                    registry
+                };
+            }
+        });
+        items.push(parse_quote! {
+            #[no_mangle]
+            pub fn __nucleus_abi() -> *const u8 {
+                let abi = TYPES.dump_abi();
+                let encoded = <::vrs_core_sdk::abi::JsonAbi as ::vrs_core_sdk::codec::Encode>::encode(&abi);
+                let dummy_encoded = Some(encoded);
+                let encoded = <Option<Vec<u8>> as ::vrs_core_sdk::codec::Encode>::encode(&dummy_encoded);
+                let len = encoded.len() as u32;
+                let mut output = Vec::with_capacity(4 + len as usize);
+                output.extend_from_slice(&len.to_ne_bytes());
+                output.extend_from_slice(&encoded);
+                let ptr = output.as_ptr();
+                std::mem::forget(output);
+                ptr
+            }
+        });
+    }
+    quote! {
+        #input_mod
+    }
+    .into()
+}
 
 #[proc_macro_attribute]
 pub fn post(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let func = parse_macro_input!(item as ItemFn);
     let func_name = format_ident!("__nucleus_{}_{}", "post", &func.sig.ident);
-    export_fn_internal("post", &func);
     expand(func, func_name)
 }
 
@@ -14,7 +129,6 @@ pub fn post(_attr: TokenStream, item: TokenStream) -> TokenStream {
 pub fn get(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let func = parse_macro_input!(item as ItemFn);
     let func_name = format_ident!("__nucleus_{}_{}", "get", &func.sig.ident);
-    export_fn_internal("get", &func);
     expand(func, func_name)
 }
 
@@ -38,6 +152,7 @@ pub fn callback(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let func_name = format_ident!("__nucleus_http_callback");
     expand(func, func_name)
 }
+
 fn expand(func: ItemFn, entry_name: Ident) -> TokenStream {
     let func_block = &func.block;
     let func_decl = &func.sig;
@@ -94,381 +209,4 @@ fn expand(func: ItemFn, entry_name: Ident) -> TokenStream {
         }
     };
     expanded.into()
-}
-use std::env;
-use std::path::PathBuf;
-fn get_export_file() -> PathBuf {
-    // 1. Get the name of the crate currently being compiled
-    let pkg_name = env::var("CARGO_PKG_NAME")
-        .expect("CARGO_PKG_NAME environment variable not set; ensure you are compiling within a Cargo environment.");
-    // 2. Get the output directory (use env var if set, otherwise default to target/json_exports)
-    let export_dir_str =
-        env::var("EXPORT_JSON_DIR").unwrap_or_else(|_| "target/json_exports".to_string());
-
-    let export_dir = PathBuf::from(export_dir_str);
-
-    // 3. Ensure the output directory exists (Note: potential race in parallel builds, but create_dir_all is usually okay)
-    std::fs::create_dir_all(&export_dir).unwrap_or_else(|e| {
-        panic!(
-            "Failed to create export directory: {:?}. Error: {}",
-            export_dir, e
-        )
-    });
-
-    // 4. Build and return the unique file path, e.g., target/json_exports/my_crate_name.json
-    export_dir.join(format!("__export_json_crate_{}.json", pkg_name))
-}
-use serde::Serialize;
-use std::{fs::OpenOptions, io::Write};
-
-#[derive(Serialize)]
-#[serde(tag = "kind")]
-enum TypePath {
-    Path {
-        path: Vec<String>,
-        generic_args: Vec<TypePath>,
-    },
-    Tuple {
-        tuple_args: Vec<TypePath>,
-    },
-    Array {
-        elem: Box<TypePath>,
-        len: Option<usize>, // None represents slice, Some(len) represents array
-    },
-    Unsupported,
-}
-/// JSON structure definition
-#[derive(Serialize)]
-struct ExportStruct {
-    r#type: &'static str,
-    name: String,
-    generics: Vec<String>,
-    fields: Vec<ExportField>,
-}
-#[derive(Serialize)]
-struct ExportVariant {
-    name: String,
-    fields: Vec<ExportField>,
-}
-
-#[derive(Serialize)]
-struct ExportEnum {
-    r#type: &'static str,
-    name: String,
-    variants: Vec<ExportVariant>,
-}
-#[derive(Serialize)]
-struct ExportField {
-    name: String,
-    r#type: TypePath,
-}
-
-/// JSON structure definition for Type Aliases
-#[derive(Serialize)]
-struct ExportTypeAlias {
-    r#type: &'static str, // Will be "type_alias" or "type"
-    name: String,
-    generics: Vec<String>,
-    target: TypePath,
-}
-#[derive(Serialize)]
-struct ExportFn {
-    r#type: &'static str,
-    name: String,
-    method: String,
-    inputs: Vec<ExportField>,
-    output: Option<TypePath>,
-}
-
-#[proc_macro_attribute]
-pub fn export(_args: TokenStream, input: TokenStream) -> TokenStream {
-    let input_clone = input.clone();
-    let ast: syn::Item = parse_macro_input!(input_clone);
-
-    match &ast {
-        syn::Item::Struct(s) => export_struct(&s),
-        syn::Item::Type(alias) => export_type_alias(&alias),
-        syn::Item::Enum(e) => export_enum(&e),
-        _ => (),
-    }
-
-    // Return original definition unchanged
-    input
-}
-fn parse_type(ty: &syn::Type) -> TypePath {
-    match ty {
-        syn::Type::Path(type_path) => {
-            let segments = &type_path.path.segments;
-            let mut path = vec![];
-            let mut generic_args = vec![];
-
-            for segment in segments.iter() {
-                path.push(segment.ident.to_string());
-
-                if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
-                    for arg in args.args.iter() {
-                        if let syn::GenericArgument::Type(inner_ty) = arg {
-                            generic_args.push(parse_type(inner_ty));
-                        }
-                    }
-                }
-            }
-
-            TypePath::Path { path, generic_args }
-        }
-
-        syn::Type::Tuple(ty_tuple) => TypePath::Tuple {
-            tuple_args: ty_tuple.elems.iter().map(parse_type).collect(),
-        },
-
-        syn::Type::Array(ty_array) => {
-            let len = match &ty_array.len {
-                syn::Expr::Lit(expr_lit) => {
-                    if let syn::Lit::Int(lit_int) = &expr_lit.lit {
-                        Some(lit_int.base10_parse::<usize>().unwrap_or(0))
-                    } else {
-                        None
-                    }
-                }
-                _ => None,
-            };
-
-            TypePath::Array {
-                elem: Box::new(parse_type(&ty_array.elem)),
-                len,
-            }
-        }
-
-        syn::Type::Reference(ty_ref) => parse_type(&ty_ref.elem),
-
-        _ => TypePath::Unsupported,
-    }
-}
-fn export_type_alias(t: &ItemType) {
-    let generic_params = t
-        .generics
-        .params
-        .iter()
-        .filter_map(|gp| match gp {
-            syn::GenericParam::Type(tp) => Some(tp.ident.to_string()),
-            _ => None,
-        })
-        .collect();
-
-    let export = ExportTypeAlias {
-        r#type: "type_alias",
-        name: t.ident.to_string(),
-        generics: generic_params,
-        target: parse_type(&*t.ty), // t.ty is a Box<Type>, so dereference
-    };
-
-    append_to_file(&export);
-}
-fn export_enum(e: &ItemEnum) {
-    let variants = e
-        .variants
-        .iter()
-        .map(|v| {
-            let name = v.ident.to_string();
-            let fields = match &v.fields {
-                syn::Fields::Named(fields_named) => fields_named
-                    .named
-                    .iter()
-                    .filter_map(|f| {
-                        f.ident.as_ref().map(|ident| ExportField {
-                            name: ident.to_string(),
-                            r#type: parse_type(&f.ty),
-                        })
-                    })
-                    .collect(),
-                syn::Fields::Unnamed(fields_unnamed) => fields_unnamed
-                    .unnamed
-                    .iter()
-                    .enumerate()
-                    .map(|(i, f)| ExportField {
-                        name: format!("_{}", i),
-                        r#type: parse_type(&f.ty),
-                    })
-                    .collect(),
-                syn::Fields::Unit => vec![],
-            };
-            ExportVariant { name, fields }
-        })
-        .collect();
-
-    let export = ExportEnum {
-        r#type: "enum",
-        name: e.ident.to_string(),
-        variants,
-    };
-
-    append_to_file(&export);
-}
-fn export_struct(s: &ItemStruct) {
-    // +++ Add logic to extract generic parameters +++
-    let generic_params: Vec<String> = s
-        .generics
-        .params
-        .iter()
-        .filter_map(|gp| match gp {
-            syn::GenericParam::Type(tp) => Some(tp.ident.to_string()),
-            _ => None,
-        })
-        .collect();
-
-    // +++ Modify field handling logic to support tuple structs +++
-    let fields: Vec<ExportField> = match &s.fields {
-        syn::Fields::Named(fields_named) => fields_named
-            .named
-            .iter()
-            .filter_map(|f| {
-                f.ident.as_ref().map(|ident| ExportField {
-                    name: ident.to_string(),
-                    r#type: parse_type(&f.ty),
-                })
-            })
-            .collect(),
-        syn::Fields::Unnamed(fields_unnamed) => fields_unnamed
-            .unnamed
-            .iter()
-            .enumerate()
-            .map(|(i, f)| ExportField {
-                name: format!("_{}", i), // Generate names _0, _1, ... for tuple fields
-                r#type: parse_type(&f.ty),
-            })
-            .collect(),
-        syn::Fields::Unit => vec![], // Handle unit structs
-    };
-
-    let export = ExportStruct {
-        r#type: "struct",
-        name: s.ident.to_string(),
-        generics: generic_params, // <--- Add generic parameters
-        fields,                   // <--- Use updated fields
-    };
-
-    append_to_file(&export);
-}
-fn export_fn_internal(method: &str, f: &ItemFn) {
-    let inputs = f
-        .sig
-        .inputs
-        .iter()
-        .filter_map(|arg| match arg {
-            syn::FnArg::Typed(pat_type) => {
-                if let syn::Pat::Ident(ident) = &*pat_type.pat {
-                    Some(ExportField {
-                        name: ident.ident.to_string(),
-                        r#type: parse_type(&pat_type.ty),
-                    })
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        })
-        .collect();
-
-    let output = match &f.sig.output {
-        syn::ReturnType::Default => None,
-        syn::ReturnType::Type(_, ty) => Some(parse_type(ty)),
-    };
-
-    let export = ExportFn {
-        r#type: "fn",
-        name: f.sig.ident.to_string(),
-        method: method.to_string(),
-        inputs,
-        output,
-    };
-
-    append_to_file(&export);
-}
-
-use fs2::FileExt; // Import FileExt for locking
-use serde_json::Value;
-use std::collections::HashSet; // Import HashSet
-use std::io::{Read, Seek, SeekFrom}; // Import IO traits
-use std::sync::{LazyLock, Mutex}; // Use Mutex for the map // Ensure Serialize is in scope // Add LazyLock
-                                  // Use a Mutex-protected HashSet to track initialized files per build run.
-static INIT_MAP: LazyLock<Mutex<HashSet<PathBuf>>> = LazyLock::new(|| Mutex::new(HashSet::new()));
-
-fn append_to_file<T: Serialize>(data: &T) {
-    let export_file_path = get_export_file(); // Get the PathBuf
-
-    // --- Use a file lock to ensure atomic RMW operations ---
-    let file = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .open(&export_file_path)
-        .expect("Cannot open or create export file");
-
-    // Acquire an exclusive (write) lock, blocking until available.
-    file.lock_exclusive().expect("Cannot acquire file lock");
-
-    // --- Determine if this is the first access IN THIS BUILD RUN ---
-    let is_first_touch_this_run;
-    {
-        // Scope for Mutex guard
-        let mut init_set = INIT_MAP.lock().unwrap();
-        // `insert` returns true if the value was not present before.
-        is_first_touch_this_run = init_set.insert(export_file_path.clone());
-    } // Mutex guard is dropped here
-    let mut current_file = &file; // Use a reference
-
-    // --- Perform initialization or read within the lock ---
-
-    let mut entries: Vec<Value>;
-
-    if is_first_touch_this_run {
-        // If it's the first time in this build, TRUNCATE and write "[]".
-        current_file.set_len(0).expect("Cannot truncate file");
-        current_file
-            .seek(SeekFrom::Start(0))
-            .expect("Cannot seek in file");
-        current_file
-            .write_all(b"[]")
-            .expect("Cannot initialize file");
-        entries = Vec::new(); // We know it's empty now
-    } else {
-        // If not the first time, read the existing content (which should be [...])
-        current_file
-            .seek(SeekFrom::Start(0))
-            .expect("Cannot seek in file");
-        let mut content = String::new();
-        current_file
-            .read_to_string(&mut content)
-            .expect("Cannot read file");
-
-        entries = serde_json::from_str(&content).unwrap_or_else(|err| {
-            // This shouldn't happen if locking works, but as a fallback,
-            // we can either panic or start fresh. Starting fresh is safer.
-            eprintln!(
-                "Warning: Could not parse existing JSON in {}: {}. Starting fresh.",
-                export_file_path.display(),
-                err
-            );
-            Vec::new()
-        });
-    }
-
-    // Serialize new data and append
-    let new_entry = serde_json::to_value(data).expect("Serialize error");
-    entries.push(new_entry);
-
-    // Serialize back to a JSON string
-    let formatted_json = serde_json::to_string_pretty(&entries).expect("JSON serialization error");
-
-    // Truncate the file and write the new, full content
-    current_file.set_len(0).expect("Cannot truncate file");
-    current_file
-        .seek(SeekFrom::Start(0))
-        .expect("Cannot seek in file");
-    current_file
-        .write_all(formatted_json.as_bytes())
-        .expect("Write error");
-
-    // --- Release the file lock ---
-    fs2::FileExt::unlock(&file).expect("Cannot release file lock");
 }

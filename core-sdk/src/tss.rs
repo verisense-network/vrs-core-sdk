@@ -7,10 +7,10 @@
 
 use crate::{error::RuntimeError, CallResult};
 use codec::{Decode, Encode};
-use vrs_core_macros::export;
+use scale_info::TypeInfo;
+
 #[repr(u8)]
-#[derive(Encode, Decode)]
-#[export]
+#[derive(Encode, Decode, TypeInfo, Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CryptoType {
     P256 = 0,
     Ed25519 = 1,
@@ -41,6 +41,7 @@ impl TryFrom<u8> for CryptoType {
         }
     }
 }
+
 #[link(wasm_import_module = "env")]
 extern "C" {
     fn tss_get_public_key_host_fn(

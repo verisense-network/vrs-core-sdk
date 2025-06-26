@@ -36,6 +36,7 @@
 //! }
 //! ```
 
+pub mod abi;
 pub mod error;
 pub mod http;
 pub mod io;
@@ -45,6 +46,8 @@ pub mod tss;
 
 pub use codec;
 pub use io::{_eprint, _print, nucleus_id};
+pub use lazy_static;
+pub use scale_info;
 pub use sp_core::crypto::AccountId32 as AccountId;
 pub use vrs_core_macros::*;
 
