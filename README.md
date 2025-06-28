@@ -1,6 +1,6 @@
 ## Verisense Core SDK
 
-The core SDK for developing Verisense nuclei. For more details, see the Documentation.
+The core SDK for developing Verisense nuclei. For more details, see the [Documentation](https://docs.verisense.network).
 
 ## Quick Start
 
