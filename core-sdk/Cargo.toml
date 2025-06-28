@@ -10,7 +10,7 @@ description.workspace = true
 readme.workspace = true
 
 [dependencies]
-vrs-core-macros = { path = "../core-sdk-macros" }
+vrs-core-macros = { version = "0.2.1", path = "../core-sdk-macros" }
 sp-core = { features = ["serde"], version = "34.0", default-features = false }
 codec = { features = ["derive"], package = "parity-scale-codec", version = "3.6", default-features = false }
 scale-info = { features = ["derive", "serde"], version = "2.11", default-features = false }
